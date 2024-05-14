@@ -1,0 +1,22 @@
+version: '3.3'
+
+services:
+  mysql:
+    image: mariadb:latest
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql-init:/docker-entrypoint-initdb.d
+
+  employeeservice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    hostname: employeeservice
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mysql
