@@ -1,13 +1,15 @@
 package controller
 
 import (
-	"context"
-	"employee/internal/model"
 	"employee/internal/service"
-	"encoding/json"
+	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"os"
+	"path/filepath"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/labstack/echo/v4"
@@ -16,6 +18,7 @@ import (
 type Controller interface {
 	EmployeeData(c echo.Context) error
 	GetEmployees(c echo.Context) error
+	ProcessData() error
 }
 
 type EmployeeController struct {
@@ -29,22 +32,17 @@ func NewEmployeeController(employeeService service.EmployeeService) Controller {
 }
 
 func (e EmployeeController) EmployeeData(c echo.Context) error {
-
 	// parse JSON request body
-	var employees []model.Employee
 	b, err := io.ReadAll(c.Request().Body)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	err = json.Unmarshal(b, &employees)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-	}
+	// Create temp directory
+	os.Mkdir("./tmp", 0777)
 
-	// Create temp file
-	f, err := os.CreateTemp("", "employee_data")
-	fileName := f.Name()
+	fileName := fmt.Sprintf("./tmp/employee_data_%d.json", rand.Intn(1000000))
+	f, err := os.Create(fileName)
 	defer f.Close()
 
 	if err != nil {
@@ -52,17 +50,13 @@ func (e EmployeeController) EmployeeData(c echo.Context) error {
 		return err
 	}
 
-	defer os.Remove(fileName)
-
 	// Write employee data to the file
-	err = writeEmployeesToFile(fileName, employees)
+	err = writeEmployeesToFile(f.Name(), b)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return err
 
 	}
-
-	go e.Service.CreateEmployee(context.Background(), fileName)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Employees received successfully"})
 	return nil
@@ -77,18 +71,44 @@ func (e EmployeeController) GetEmployees(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
-func writeEmployeesToFile(fileName string, employees []model.Employee) error {
+func writeEmployeesToFile(fileName string, jsonData []byte) error {
 	file, err := os.OpenFile(fileName, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
+	os.WriteFile(fileName, jsonData, 0644)
+	return nil
+}
 
-	encoder := json.NewEncoder(file)
-	for _, employee := range employees {
-		if err := encoder.Encode(employee); err != nil {
+func (e EmployeeController) ProcessData() error {
+	ticker := time.NewTicker(5 * time.Second)
+	go func() {
+		for range ticker.C {
+			files, err := getAllFiles("./tmp/")
+			if err != nil {
+				return
+			}
+			var wg sync.WaitGroup
+			wg.Add(len(files))
+			for _, file := range files {
+				go e.Service.ProcessFile(file, &wg)
+			}
+		}
+	}()
+	return nil
+}
+
+func getAllFiles(dirPath string) ([]string, error) {
+	var fileList []string
+	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
 			return err
 		}
-	}
-	return nil
+		if !info.IsDir() {
+			fileList = append(fileList, path)
+		}
+		return nil
+	})
+	return fileList, err
 }

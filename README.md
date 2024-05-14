@@ -26,12 +26,21 @@ Once the service is running, you can make HTTP requests to the API. Here's an ex
 Create:
 ```bash
 curl --location 'localhost:8000/v1/employee' \ --header 'Content-Type: application/json' \ --data '[{
-	"name":"Nags",
+	"name":"om",
+	"salary":780000,
+	"designation":"FE",
+	"insurance_id":2,
+	"insurance_amount":1000000,
+	"location":"Kolar"
+},
+{
+    "name":"Nags",
 	"salary":780000,
 	"designation":"Manager",
 	"insurance_id":2,
 	"insurance_amount":1000000,
 	"location":"Mysore"
+
 }
  ]'
 ```

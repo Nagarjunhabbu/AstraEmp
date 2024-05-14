@@ -7,6 +7,7 @@ import (
 	"employee/internal/model"
 	"employee/internal/sql_data"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"sync"
@@ -15,6 +16,7 @@ import (
 type EmployeeService interface {
 	GetEmployee(ctx context.Context) ([]model.Employee, error)
 	CreateEmployee(ctx context.Context, fileName string) error
+	ProcessFile(filePath string, wg *sync.WaitGroup)
 }
 
 type employeeService struct {
@@ -79,4 +81,28 @@ func (e employeeService) CreateEmployee(ctx context.Context, fileName string) er
 
 	wg.Wait()
 	return nil
+}
+
+func (e employeeService) ProcessFile(filePath string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	// Read file content
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		fmt.Printf("Error reading file %s: %v\n", filePath, err)
+		return
+	}
+
+	// Unmarshal data (assuming JSON format)
+	var employees []model.Employee
+	if err := json.Unmarshal(data, &employees); err != nil {
+		fmt.Printf("Error unmarshalling data from %s: %v\n", filePath, err)
+		return
+	}
+
+	// Store employees in database (replace with your actual logic)
+	for _, employee := range employees {
+		os.Remove(filePath)
+		e.Data.Create(context.Background(), &employee)
+	}
 }

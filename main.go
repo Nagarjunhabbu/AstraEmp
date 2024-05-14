@@ -25,6 +25,8 @@ func main() {
 	service := service.NewEmployeeService(storer)
 	ctrl := controller.NewEmployeeController(service)
 
+	ctrl.ProcessData()
+
 	e.POST("/v1/employee", ctrl.EmployeeData)
 	e.GET("/v1/employee", ctrl.GetEmployees)
 
