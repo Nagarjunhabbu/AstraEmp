@@ -41,7 +41,7 @@ func getDb() *gorm.DB {
 
 	// Wait for MySQL to become available
 	for {
-		db, err = gorm.Open(mysql.Open("root:root123@tcp(localhost:3306)/employeedb"), &gorm.Config{})
+		db, err = gorm.Open(mysql.Open("root:root123@tcp(mysql:3306)/employeedb"), &gorm.Config{})
 		if err == nil {
 			break // MySQL is available, break the loop
 		}
